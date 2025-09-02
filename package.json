@@ -1,0 +1,21 @@
+{
+  "name": "instagram-vercel",
+  "version": "1.0.0",
+  "description": "Vercel serverless API for Instagram using unofficial API",
+  "main": "index.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "keywords": [
+    "instagram",
+    "api",
+    "vercel",
+    "serverless"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "instagram-private-api": "^1.45.0"
+  }
+}
