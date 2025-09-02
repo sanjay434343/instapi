@@ -5,53 +5,66 @@ export default async function handler(req, res) {
   ig.state.generateDevice(process.env.IG_USERNAME);
 
   try {
-    // Try logging in
-    const loginResult = await ig.account.login(process.env.IG_USERNAME, process.env.IG_PASSWORD);
+    // 1️⃣ Login with environment variables
+    const loginResult = await ig.account.login(
+      process.env.IG_USERNAME,
+      process.env.IG_PASSWORD
+    );
+
     if (!loginResult) {
-      return res.status(500).send('<p>Login failed. Check your IG_USERNAME and IG_PASSWORD environment variables.</p>');
+      return res.status(500).send(
+        '<p>Login failed. Check your IG_USERNAME and IG_PASSWORD environment variables.</p>'
+      );
     }
 
-    // Get your own account info
+    // 2️⃣ Get your own user info
     const me = await ig.account.currentUser();
     if (!me) {
       return res.status(500).send('<p>Failed to fetch your account info.</p>');
     }
 
-    // Fetch latest posts safely
+    // 3️⃣ Fetch latest posts safely
     const feed = ig.feed.user(me.pk);
-    const items = await feed.items() || [];
+    const items = (await feed.items()) || [];
 
+    // Map posts with safety checks
     const posts = items.slice(0, 5).map(post => {
       const imageUrl = post?.image_versions2?.candidates?.[0]?.url;
-      if (!imageUrl) return null;
+      if (!imageUrl) return null; // skip if missing
       return {
         caption: post?.caption?.text || '',
         imageUrl
       };
-    }).filter(Boolean);
+    }).filter(Boolean); // remove nulls
 
-    // Render HTML safely
+    // 4️⃣ Prepare HTML safely
     let html = `
       <html>
         <body style="font-family:sans-serif; margin:20px;">
           <h2>Your Instagram Info</h2>
-          <p>Logged in as: ${me.username}</p>
-          <p>Full Name: ${me.full_name || 'N/A'}</p>
-          <p>Bio: ${me.biography || 'N/A'}</p>
-          <p>Followers: ${me.follower_count || 0}</p>
-          <p>Following: ${me.following_count || 0}</p>
+          <p><strong>Logged in as:</strong> ${me.username}</p>
+          <p><strong>Full Name:</strong> ${me.full_name || 'N/A'}</p>
+          <p><strong>Bio:</strong> ${me.biography || 'N/A'}</p>
+          <p><strong>Followers:</strong> ${me.follower_count || 0}</p>
+          <p><strong>Following:</strong> ${me.following_count || 0}</p>
 
           <h3>Latest Posts</h3>
     `;
 
-    if (posts.length === 0) html += '<p>No posts available</p>';
-    else {
+    if (posts.length === 0) {
+      html += '<p>No posts available</p>';
+    } else {
       posts.forEach(p => {
-        html += `<div style="margin-bottom:15px;"><p>${p.caption}</p><img src="${p.imageUrl}" width="200"/></div>`;
+        html += `<div style="margin-bottom:15px;">
+          <p>${p.caption}</p>
+          <img src="${p.imageUrl}" width="200"/>
+        </div>`;
       });
     }
 
-    html += `</body></html>`;
+    html += '</body></html>';
+
+    // 5️⃣ Send HTML response
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
 
