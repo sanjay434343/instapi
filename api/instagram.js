@@ -36,27 +36,35 @@ export default async function handler(req, res) {
     const userId = await ig.user.getIdByUsername(targetUsername);
     const targetUser = await ig.user.info(userId);
 
-    // Fetch latest posts
+    // Fetch latest posts safely
     const userFeed = ig.feed.user(userId);
     const postsItems = await userFeed.items();
-    const posts = postsItems.slice(0, 5).map(p => ({
-      caption: p.caption?.text || '',
-      imageUrl: p.image_versions2?.candidates[0]?.url || ''
-    }));
+    const posts = postsItems.slice(0, 5).map(p => {
+      const imageUrl = p.image_versions2?.candidates?.[0]?.url;
+      if (!imageUrl) return null;
+      return {
+        caption: p.caption?.text || '',
+        imageUrl
+      };
+    }).filter(Boolean);
 
-    // Fetch reels
+    // Fetch reels safely
     const reelsFeed = ig.feed.reelsMedia({ userIds: [userId] });
     const reelsItems = await reelsFeed.items();
-    const reels = reelsItems.slice(0, 5).map(r => ({
-      takenAt: new Date(r.taken_at * 1000),
-      videoUrl: r.video_versions?.[0]?.url || ''
-    }));
+    const reels = reelsItems.slice(0, 5).map(r => {
+      const videoUrl = r.video_versions?.[0]?.url;
+      if (!videoUrl) return null;
+      return {
+        takenAt: new Date(r.taken_at * 1000),
+        videoUrl
+      };
+    }).filter(Boolean);
 
-    // Fetch stories
+    // Fetch stories safely
     const storiesItems = await ig.feed.userStory(userId).items();
     const stories = storiesItems.slice(0, 5).map(s => {
-      if (s.image_versions2) return { type: 'image', url: s.image_versions2.candidates[0].url };
-      else if (s.video_versions) return { type: 'video', url: s.video_versions[0].url };
+      if (s.image_versions2?.candidates?.[0]?.url) return { type: 'image', url: s.image_versions2.candidates[0].url };
+      if (s.video_versions?.[0]?.url) return { type: 'video', url: s.video_versions[0].url };
       return null;
     }).filter(Boolean);
 
@@ -72,16 +80,13 @@ export default async function handler(req, res) {
           <p>Following: ${targetUser.following_count}</p>
 
           <h3>Posts</h3>
-          ${posts.map(p => `<div><p>${p.caption}</p><img src="${p.imageUrl}" width="200"/></div>`).join('')}
+          ${posts.length > 0 ? posts.map(p => `<div><p>${p.caption}</p><img src="${p.imageUrl}" width="200"/></div>`).join('') : '<p>No posts available</p>'}
 
           <h3>Reels</h3>
-          ${reels.map(r => `<div><p>Uploaded at: ${r.takenAt}</p><video src="${r.videoUrl}" width="300" controls></video></div>`).join('')}
+          ${reels.length > 0 ? reels.map(r => `<div><p>Uploaded at: ${r.takenAt}</p><video src="${r.videoUrl}" width="300" controls></video></div>`).join('') : '<p>No reels available</p>'}
 
           <h3>Stories</h3>
-          ${stories.map(s => {
-            if (s.type === 'image') return `<img src="${s.url}" width="150"/>`;
-            else return `<video src="${s.url}" width="200" controls></video>`;
-          }).join('')}
+          ${stories.length > 0 ? stories.map(s => s.type === 'image' ? `<img src="${s.url}" width="150"/>` : `<video src="${s.url}" width="200" controls></video>`).join('') : '<p>No stories available</p>'}
 
           <br><a href="/api/instagram">Search another user</a>
         </body>
